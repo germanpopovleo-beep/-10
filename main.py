@@ -5,6 +5,8 @@ import math
 import datetime
 import logging
 import httpx
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,12 +16,32 @@ from telegram.ext import (
     filters
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+BOT_TOKEN = os.environ.get("8928062959:AAE1Vt1YUB-5-gOVuAduHeLz1ZWotmwNIHA")
+
+
+def run_http_server():
+    port = int(os.environ.get("PORT", 10000))
+
+    class HealthCheckHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot is alive!")
+
+        def log_message(self, format, *args):
+            pass
+
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+
+threading.Thread(target=run_http_server, daemon=True).start()
+
 
 def get_weather(city: str = "Якутск") -> str:
     city_clean = str(city).lower().strip()
@@ -30,9 +52,11 @@ def get_weather(city: str = "Якутск") -> str:
     }
     return fake_db.get(city_clean, f"в городе {city} сейчас +20°C, солнечно")
 
+
 def get_time(timezone: str = "UTC") -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
     return f"Текущее время (UTC): {now.strftime('%H:%M:%S')}"
+
 
 def calculate(expression: str = "0") -> str:
     try:
@@ -42,11 +66,13 @@ def calculate(expression: str = "0") -> str:
     except Exception as e:
         return f"Ошибка вычисления: {e}"
 
+
 TOOLS = {
     "get_weather": get_weather,
     "get_time": get_time,
     "calculate": calculate
 }
+
 
 def extract_json(text: str):
     if not text:
@@ -66,7 +92,7 @@ def extract_json(text: str):
     start = cleaned.find('{')
     end = cleaned.rfind('}')
     if start != -1 and end != -1 and end > start:
-        json_str = cleaned[start:end+1]
+        json_str = cleaned[start:end + 1]
         try:
             data = json.loads(json_str)
             if isinstance(data, dict) and "tool" in data:
@@ -76,6 +102,7 @@ def extract_json(text: str):
 
     return None
 
+
 SYSTEM_PROMPT = (
     "Ты — ИИ-ассистент с инструментами.\n"
     "Если пользователю нужно узнать погоду, время или посчитать что-то, верни ТОЛЬКО JSON-структуру вида:\n"
@@ -84,6 +111,7 @@ SYSTEM_PROMPT = (
     '{"tool": "calculate", "args": {"expression": "2+2"}}\n'
     "Если инструменты не требуются — отвечай простым текстом."
 )
+
 
 async def agent_process(user_query: str) -> str:
     try:
@@ -112,18 +140,21 @@ async def agent_process(user_query: str) -> str:
 
     return "Не удалось получить ответ от сервиса. Попробуйте еще раз."
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Здарова! Я облачный бот с инструментами. Задавай вопросы!")
+    await update.message.reply_text("дарова я облачный бот с инструментами задавай вопросы")
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     final_answer = await agent_process(user_text)
     await update.message.reply_text(final_answer)
 
+
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Бот запущен на Render!")
+    print("Бот запущен на Render с фоновым http-сервером")
     app.run_polling()
