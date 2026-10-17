@@ -21,7 +21,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = "8928062959:AAE1Vt1YUB-5-gOVuAduHeLz1ZWotmwNIHA"
 
 
 def run_http_server():
